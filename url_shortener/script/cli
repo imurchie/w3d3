@@ -1,0 +1,77 @@
+class CommandLineInterface
+  def get_email
+    puts "Input your email:"
+    gets.chomp
+  end
+
+  def display_prompt
+    puts <<-PROMPT
+    What do you want to do?
+    0. Create shortened URL
+    1. Visit shortened URL
+    2. Look at popular URLs in a tag
+    3. Quit
+    PROMPT
+
+    gets.chomp.to_i
+  end
+
+  def create_short_url(user)
+    puts "Type in your long url"
+    long_url = gets.chomp
+    puts "What tag do you want to apply to it?"
+    list_tags
+    tag = gets.chomp
+
+    tag_topic = TagTopic.where("name = ?", tag).first
+    shortened_url = ShortenedUrl.create_for_user_and_long_url!(user, long_url)
+
+    Tagging.record_tagging!(shortened_url, tag_topic)
+    puts "Short url is: #{shortened_url.short_url}"
+    puts "Tagged with tag: #{tag_topic.name}"
+  end
+
+  def visit_short_url(user)
+    puts "Type in the shortened URL"
+    short_url = gets.chomp
+
+    shortened_url = ShortenedUrl.where("short_url = ?", short_url).first
+    Visit.record_visit!(user, shortened_url)
+    Launchy.open(shortened_url.long_url)
+  end
+
+  def list_tags
+    puts "Available tags:"
+    puts TagTopic.all.map{|t| t.name}
+  end
+
+  def display_popular_urls
+    list_tags
+    puts "what tag do you want?"
+    desired_tag = gets.chomp
+    populars = TagTopic.most_popular_links_in_category(desired_tag)
+    populars.each {|p| puts "longurl: #{p.long_url} | shorturl: #{p.short_url}"}
+  end
+
+
+  def run
+    user = User.where("email = ?", get_email).first
+    while true
+      next unless user
+
+      case display_prompt
+      when 0
+        create_short_url(user)
+      when 1
+        visit_short_url(user)
+      when 2
+        display_popular_urls
+      else
+        break
+      end
+    end
+  end
+end
+
+
+CommandLineInterface.new.run
